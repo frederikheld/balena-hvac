@@ -1,0 +1,11 @@
+FROM balenalib/%%BALENA_MACHINE_NAME%%-debian-pyhton:bullseye-run
+
+RUN apt-get update && apt-get upgrade
+
+RUN install_packages
+
+WORKDIR /app
+
+COPY hvac.py .
+
+CMD ["python3", "hvac.py" ]
