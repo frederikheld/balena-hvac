@@ -6,10 +6,9 @@ RUN install_packages
 
 WORKDIR /app
 
-COPY requirements.txt .
-ENV CFLAGS=-fcommon
-RUN pip3 install -r requirements.txt
+COPY package*.json .
+RUN npm install
 
-COPY hvac.py .
+COPY hvac.js .
 
-CMD ["python3", "hvac.py" ]
+CMD ["npm", "start" ]

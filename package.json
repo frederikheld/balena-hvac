@@ -1,0 +1,23 @@
+{
+  "name": "balena-hvac",
+  "version": "0.0.1",
+  "description": "HVAC service for balenaOS",
+  "main": "hvac.js",
+  "scripts": {
+    "start": "node hvac.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frederikheld/balena-hvac.git"
+  },
+  "author": "Frederik S. Held (kontakt@frederikheld.de)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/frederikheld/balena-hvac/issues"
+  },
+  "homepage": "https://github.com/frederikheld/balena-hvac#readme",
+  "dependencies": {
+    "onoff": "^6.0.3"
+  }
+}
