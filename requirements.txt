@@ -1,2 +1,2 @@
-RPi.Gpio
+RPi.GPIO
 Adafruit_DHT
