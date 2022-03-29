@@ -30,7 +30,7 @@ const CONFIG = {
     }
 }
 
-console.log('Hello NodeJS HVAC!')
+console.log('Hello from balena-hvac!')
 
 // init GPIO:
 const fan_out = new Gpio(CONFIG.devices.fan.pin_out, 'out')
@@ -51,7 +51,7 @@ setInterval(async () => {
 
     try {
         const { temperature, humidity, pressure } = await readBME280(CONFIG.devices.bme280.i2c_bus, CONFIG.devices.bme280.i2c_address)
-        console.log(`BME280: temperature: ${temperature} °C, humidity: ${humidity} %, pressure: ${pressure} hPa`)
+        console.log(`BME280: temperature: ${temperature.toFixed(2)} °C, humidity: ${humidity.toFixed(2)} %, pressure: ${pressure.toFixed(2)} hPa, dew point: ${calculateDewPointTemperature(temperature, humidity).toFixed(2)} °C`)
 
         const result = fanControl (fan_out, temperature, CONFIG.thresholds.fan, fan_is_running)
         fan_is_running = result.fan_is_running
@@ -151,4 +151,43 @@ async function readBME280 (i2c_bus, i2c_address) {
             reject(error)
         })
     })
+}
+
+function calculateDewPointTemperature (observed_temperature, relative_humidity) {
+
+    // constants:
+    const a = 17.625
+    const b = 243.04
+
+    // fix humidity if it is 0 (which can happen at high temperatures) because log(0) is undefined:
+    const humidity = (relative_humidity === 0 ? 0.00001 : relative_humidity)
+    
+    const step_2 = (observed_temperature * a) / (observed_temperature + b)
+    const step_3 = Math.log(humidity / 100) + step_2
+    const dew_point_temperature = (b * step_3) / (a - step_3)
+
+    // console.log(` >> step_2: ${step_2}, step_3: ${step_3}, result: ${dew_point_temperature}`)
+
+    return dew_point_temperature
+
+    // source: https://www.omnicalculator.com/physics/dew-point
+    
+}
+
+/**
+ * This function calculates a rough estimation of the dew point temperature.
+ * It does not not need barometric pressure as an input and works well for
+ * a relative humidity above 50 % but doesn't produce useful values for a
+ * relative humidity below 50 %.
+ *
+ * Source: https://iridl.ldeo.columbia.edu/dochelp/QA/Basic/dewpoint.html
+ * 
+ * @param {Number} observed_temperature Observed temperature in °C
+ * @param {Number} relative_humidity Relative humidity in %
+ * @returns Approximated dew point temperature in °C
+ */
+function calculateRoughDewPointTemperature (observed_temperature, relative_humidity) {
+    const dew_point_temperature = observed_temperature ((100 - relative_humidity) / 5)
+
+    return dew_point_temperature
 }
