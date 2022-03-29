@@ -32,6 +32,9 @@ const CONFIG = {
 
 console.log('Hello NodeJS HVAC!')
 
+// init GPIO:
+const fan_out = new Gpio(CONFIG.devices.fan.pin_out, 'out')
+
 // initalize values:
 let fan_is_running = false
 
@@ -50,15 +53,15 @@ setInterval(async () => {
         const { temperature, humidity, pressure } = await readBME280(CONFIG.devices.bme280.i2c_bus, CONFIG.devices.bme280.i2c_address)
         console.log(`BME280: temperature: ${temperature} °C, humidity: ${humidity} %, pressure: ${pressure} hPa`)
 
-        const result = fanControl (CONFIG.devices.fan.pin_out, temperature, CONFIG.thresholds.fan, fan_is_running)
+        const result = fanControl (fan_out, temperature, CONFIG.thresholds.fan, fan_is_running)
         fan_is_running = result.fan_is_running
      
         // console.log(`fanControl: ${JSON.stringify(result)}`)
-        
+
         if (result.fan_was_turned_on) {
-            console.log(`  temperature > ${CONFIG.thresholds.fan.temp_upper} --> turning fan on`)
+            console.log(`  temperature > ${CONFIG.thresholds.fan.temp_upper} °C --> turning fan on (${fan_is_running})`)
         } else if (result.fan_was_turned_off) {
-            console.log(`  temperature < ${CONFIG.thresholds.fan.temp_upper} --> turning fan off`)
+            console.log(`  temperature < ${CONFIG.thresholds.fan.temp_upper} °C --> turning fan off (${fan_is_running})`)
         }
     } catch (error) {
         console.log(error)
@@ -66,9 +69,15 @@ setInterval(async () => {
 
 }, 10000)
 
-function fanControl(pin_out, current_temperature, thresholds, fan_is_running = false) {
-
-    const fan_out = new Gpio(pin_out, 'out')
+/**
+ * 
+ * @param {initialized GPIO out pin} fan_out Use onoff library to initialize this pin as 'out'
+ * @param {Number} current_temperature 
+ * @param {Object} thresholds { temp_upper, temp_lower }
+ * @param {Boolean} fan_is_running 
+ * @returns 
+ */
+function fanControl(fan_out, current_temperature, thresholds, fan_is_running = false) {
 
     let fan_is_running_return = fan_is_running
     let fan_was_turned_on = false
