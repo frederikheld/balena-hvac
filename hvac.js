@@ -2,12 +2,12 @@
 
 const { Gpio } = require('onoff')
 const DHT22 = require('node-dht-sensor')
-// const RaspiSensors = require('raspi-sensors')
 
 const CONFIG = {
     pins: {
         fan_out: '4',
-        dht22_in: '23'
+        dht_in: '18', // GPIO18
+        dht_type: '11'
     }
 }
 
@@ -20,9 +20,9 @@ const fan_out = new Gpio(CONFIG.pins.fan_out, 'out')
 let fan_value = 1
 
 setInterval(() => {
-    DHT22.read(22, CONFIG.pins.dht22_in, (error, current_temperature, current_humidity) => {
+    DHT22.read(CONFIG.pins.dht_type, CONFIG.pins.dht_in, (error, current_temperature, current_humidity) => {
         if (!error) {
-            console.log(`temperature: ${current_temperature} °C, humidity: ${current_humidity} %`)
+            console.log(`temperature: ${current_temperature} C, humidity: ${current_humidity} %`)
         } else {
             console.error(error)
         }

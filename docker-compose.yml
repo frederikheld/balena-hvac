@@ -6,6 +6,7 @@ services:
     labels:
       io.balena.features.dbus: "1"
       io.balena.features.sysfs: "1"
+      io.balena.features.kernel-modules: "1"
     devices:
       - "/dev/mem:/dev/mem"
       - "/dev/gpiomem:/dev/gpiomem"
@@ -13,3 +14,4 @@ services:
       - SYS_RAWIO
     environment:
       DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/host/run/dbus/system_bus_socket"
+    privileged: true
