@@ -1,4 +1,4 @@
-FROM balenalib/%%BALENA_MACHINE_NAME%%-debian-node:16-bullseye-run
+FROM balenalib/%%BALENA_MACHINE_NAME%%-debian-node:16-bullseye-build
 
 RUN apt-get update && apt-get upgrade
 
@@ -10,5 +10,7 @@ COPY package*.json ./
 RUN npm install --only=production
 
 COPY hvac.js .
+
+ENV UDEV=1
 
 CMD ["npm", "start" ]
