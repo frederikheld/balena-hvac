@@ -20,6 +20,6 @@
   "dependencies": {
     "bme280": "^2.1.1",
     "node-dht-sensor": "^0.4.3",
-    "onoff": "^6.0.3"
+    "pigpio": "^3.3.1"
   }
 }

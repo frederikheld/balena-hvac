@@ -1,6 +1,6 @@
 'use strict'
 
-const { Gpio } = require('onoff')
+const { Gpio } = require('pigpio')
 const dht22 = require('node-dht-sensor')
 const bme280 = require('bme280')
 
@@ -10,22 +10,29 @@ const CONFIG = {
             i2c_bus: 1,
             i2c_address: 0x76
         },
+        dht: {
+            type: '22',   // using DHT22 because of the more suitable temperature range. DHT11: 0 - 50 °C, DHT22: -40 - 125 °C,
+            pin_in: '18', // GPIO18
+        },
         fan: {
             pin_out: '26' // GPIO26
         },
-        dht: {
-            type: '22',  // using DHT22 because of the better temperature range. DHT11: 0 - 50 °C, DHT22: -40 - 125 °C,
-            pin_in: '18', // GPIO18
+        heating: {
+            pin_out: '21' // GPIO21
         }
     },
     thresholds: {
         fan: {
         //     temp_upper: 65,
         //     temp_lower: 60,
-            temp_upper: 55,
-            temp_lower: 50,
+            temp_upper: 45,
+            temp_lower: 40,
             dew_point_upper: 0,
             dew_point_lower: 0
+        },
+        heating: {
+            temp_upper_margin: 15, // will stop the heating if the current temperature is 15 °C or more below the current temperature
+            temp_lower_margin: 10  // will start the heating if the dew point is 10 °C or less below the current temperature 
         }
     }
 }
@@ -33,36 +40,61 @@ const CONFIG = {
 console.log('Hello from balena-hvac!')
 
 // init GPIO:
-const fan_out = new Gpio(CONFIG.devices.fan.pin_out, 'out')
+const fan_out = new Gpio(CONFIG.devices.fan.pin_out, { mode: Gpio.OUTPUT })
+const heating_out = new Gpio(CONFIG.devices.heating.pin_out, { mode: Gpio.OUTPUT }) // TODO: should be PWM!
 
-// initalize values:
+// initalize state:
 let fan_is_running = false
+let heating_is_running = false
+
+// initialize devices:
+fan_out.digitalWrite(fan_is_running)
+heating_out.digitalWrite(heating_is_running)
 
 setInterval(async () => {
 
     console.log('---')
 
+    // printing DHT22 measurements for comparison:
     try {
         const { temperature, humidity } = await readDHT(CONFIG.devices.dht.type, CONFIG.devices.dht.pin_in)
-        console.log(`DHT22:  temperature: ${temperature} °C, humidity: ${humidity} %`)
+        console.log(`DHT22:  temperature: ${temperature.toFixed(2)} °C, humidity: ${humidity.toFixed(2)} %, dew point: ${calculateDewPointTemperature(temperature, humidity).toFixed(2)} °C`)
     } catch (error) {
         console.log(error)
     }
 
+    // using BME280 measurements for the controls:
     try {
-        const { temperature, humidity, pressure } = await readBME280(CONFIG.devices.bme280.i2c_bus, CONFIG.devices.bme280.i2c_address)
-        console.log(`BME280: temperature: ${temperature.toFixed(2)} °C, humidity: ${humidity.toFixed(2)} %, pressure: ${pressure.toFixed(2)} hPa, dew point: ${calculateDewPointTemperature(temperature, humidity).toFixed(2)} °C`)
 
-        const result = fanControl (fan_out, temperature, CONFIG.thresholds.fan, fan_is_running)
-        fan_is_running = result.fan_is_running
+        // get current measurements:
+
+        const { temperature, humidity, pressure } = await readBME280(CONFIG.devices.bme280.i2c_bus, CONFIG.devices.bme280.i2c_address)
+        console.log(`BME280: temperature: ${temperature.toFixed(2)} °C, humidity: ${humidity.toFixed(2)} %, dew point: ${calculateDewPointTemperature(temperature, humidity).toFixed(2)} °C, pressure: ${pressure.toFixed(2)} hPa`)
+
+        // fan control:
+
+        const result_fan = fanControl (fan_out, temperature, CONFIG.thresholds.fan, fan_is_running)
+        fan_is_running = result_fan.fan_is_running
+
+        if (result_fan.fan_was_turned_on) {
+            console.log(`  temperature > ${CONFIG.thresholds.fan.temp_upper} °C --> turning fan on (${fan_is_running})`)
+        } else if (result_fan.fan_was_turned_off) {
+            console.log(`  temperature < ${CONFIG.thresholds.fan.temp_upper} °C --> turning fan off (${fan_is_running})`)
+        }
+
+        // heating control:
+
+        const result_heating = heatingControl (heating_out, temperature, calculateDewPointTemperature(temperature, humidity), CONFIG.thresholds.heating, heating_is_running)
+        heating_is_running = result_heating.heating_is_running
+
+        if (result_heating.heating_was_turned_on) {
+            console.log(`  temperature approaches dew point (difference < ${CONFIG.thresholds.heating.temp_lower_margin} °C) --> turning heating on (${heating_is_running})`)
+        } else if (result_heating.heating_was_turned_off) {
+            console.log(`  temperature moves away from dew point (difference > ${CONFIG.thresholds.heating.temp_upper_margin} °C) --> turning fan off (${fan_is_running})`)
+        }
      
         // console.log(`fanControl: ${JSON.stringify(result)}`)
 
-        if (result.fan_was_turned_on) {
-            console.log(`  temperature > ${CONFIG.thresholds.fan.temp_upper} °C --> turning fan on (${fan_is_running})`)
-        } else if (result.fan_was_turned_off) {
-            console.log(`  temperature < ${CONFIG.thresholds.fan.temp_upper} °C --> turning fan off (${fan_is_running})`)
-        }
     } catch (error) {
         console.log(error)
     }
@@ -83,20 +115,40 @@ function fanControl(fan_out, current_temperature, thresholds, fan_is_running = f
     let fan_was_turned_on = false
     let fan_was_turned_off = false
 
-    // check temperature:
     if (current_temperature > thresholds.temp_upper && !fan_is_running) {
-        fan_out.writeSync(1)
+        fan_out.digitalWrite(1)
 
         fan_is_running_return = true
         fan_was_turned_on = true
     } else if (current_temperature < thresholds.temp_lower && fan_is_running) {
-        fan_out.writeSync(0)
+        fan_out.digitalWrite(0)
 
         fan_is_running_return = false
         fan_was_turned_off = true
     }
 
     return { fan_is_running: fan_is_running_return, fan_was_turned_on, fan_was_turned_off }
+}
+
+function heatingControl (heating_out, current_temperature, dew_point_temperature, thresholds, heating_is_running = false) {
+
+    let heating_is_running_return = fan_is_running
+    let heating_was_turned_on = false
+    let heating_was_turned_off = false
+
+    if (current_temperature - thresholds.temp_lower_margin < dew_point_temperature && !heating_is_running) {
+        heating_out.digitalWrite(1)
+
+        heating_is_running_return = true
+        heating_was_turned_on = true
+    } else if (current_temperature - thresholds.temp_upper_margin > dew_point_temperature && heating_is_running) {
+        heating_out.digitalWrite(0)
+
+        heating_is_running_return = false
+        heating_was_turned_off = true
+    }
+
+    return { heating_is_running: heating_is_running_return, heating_was_turned_on, heating_was_turned_off }
 }
 
 /**
