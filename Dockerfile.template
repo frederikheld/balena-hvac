@@ -1,18 +1,36 @@
 FROM balenalib/%%BALENA_MACHINE_NAME%%-debian-node:16-bullseye-build
 
-RUN apt-get update && apt-get upgrade && \
-    apt-get install \
+RUN install_packages \
         i2c-tools
 
-RUN install_packages
+# install GPIO stuff on separate layer as this will be changed frequently
+# while I'm trying to figure out how GPIO is done right with NodeJS:
+RUN install_packages \
+        pigpio
+        #python-pigpio \
+        #python3-pigpio
+
+# ## Install pigpio C library from source as pre-requisite for pigpio npm package:
+# RUN sudo apt install unzip && \
+#     wget https://github.com/joan2937/pigpio/archive/master.zip && \
+#     unzip master.zip && \
+#     cd pigpio-master && \
+#     make && \
+#     sudo make install && \
+#     cd .. && \
+#     rm -r pigpio-master && \
+#     rm master.zip && \
+#     sudo apt remove unzip && \
+#     sudo pigpiod && \
+#     pigpiod -v
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm install --only=production
 
-COPY hvac.js .
-
 ENV UDEV=1
+
+COPY hvac.js .
 
 CMD ["npm", "start" ]

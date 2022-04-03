@@ -48,8 +48,8 @@ let fan_is_running = false
 let heating_is_running = false
 
 // initialize devices:
-fan_out.digitalWrite(fan_is_running)
-heating_out.digitalWrite(heating_is_running)
+fan_out.digitalWrite(fan_is_running ? 1 : 0)
+heating_out.digitalWrite(heating_is_running ? 1 : 0)
 
 setInterval(async () => {
 
@@ -73,7 +73,7 @@ setInterval(async () => {
 
         // fan control:
 
-        const result_fan = fanControl (fan_out, temperature, CONFIG.thresholds.fan, fan_is_running)
+        const result_fan = fanControl(fan_out, temperature, CONFIG.thresholds.fan, fan_is_running)
         fan_is_running = result_fan.fan_is_running
 
         if (result_fan.fan_was_turned_on) {
@@ -84,13 +84,14 @@ setInterval(async () => {
 
         // heating control:
 
-        const result_heating = heatingControl (heating_out, temperature, calculateDewPointTemperature(temperature, humidity), CONFIG.thresholds.heating, heating_is_running)
+        const result_heating = heatingControl(heating_out, temperature, calculateDewPointTemperature(temperature, humidity), CONFIG.thresholds.heating, heating_is_running)
         heating_is_running = result_heating.heating_is_running
+        console.log('result_heating:', JSON.stringify(result_heating))
 
         if (result_heating.heating_was_turned_on) {
             console.log(`  temperature approaches dew point (difference < ${CONFIG.thresholds.heating.temp_lower_margin} °C) --> turning heating on (${heating_is_running})`)
         } else if (result_heating.heating_was_turned_off) {
-            console.log(`  temperature moves away from dew point (difference > ${CONFIG.thresholds.heating.temp_upper_margin} °C) --> turning fan off (${fan_is_running})`)
+            console.log(`  temperature moves away from dew point (difference > ${CONFIG.thresholds.heating.temp_upper_margin} °C) --> turning heating off (${heating_is_running})`)
         }
      
         // console.log(`fanControl: ${JSON.stringify(result)}`)
@@ -132,7 +133,7 @@ function fanControl(fan_out, current_temperature, thresholds, fan_is_running = f
 
 function heatingControl (heating_out, current_temperature, dew_point_temperature, thresholds, heating_is_running = false) {
 
-    let heating_is_running_return = fan_is_running
+    let heating_is_running_return = heating_is_running
     let heating_was_turned_on = false
     let heating_was_turned_off = false
 
