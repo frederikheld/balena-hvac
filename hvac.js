@@ -1,8 +1,23 @@
 'use strict'
 
+const deviceUUID = process.env.BALENA_DEVICE_UUID.slice(0, 7) // this will create the short UUID as displayed in the balena dashboard
+
+// RasPi GPIO & sensors
 const { Gpio } = require('pigpio')
 const dht22 = require('node-dht-sensor')
 const bme280 = require('bme280')
+
+// InfluxDB
+const { InfluxDB, Point } = require('@influxdata/influxdb-client')
+const influxConfig = {
+    // token: process.env.INFLUX_TOKEN,
+    token: 'P6Tsderlc3bxtBRQon-Ft2ehUbl6Q1E5ff9GHU8Oezg6MF_yNHHNLAZbnmgmlKryAy-iHgwonFpSjDJ6PetVLQ==',
+    org: 'konten@frederikheld.de',
+    bucket: 'TreeCam'
+}
+const influxClient = new InfluxDB({ url: 'https://europe-west1-1.gcp.cloud2.influxdata.com', token: influxConfig.token })
+const influxWriteApiTreeCam = influxClient.getWriteApi(influxConfig.org, influxConfig.bucket)
+influxWriteApiTreeCam.useDefaultTags({ device: deviceUUID })
 
 const CONFIG = {
     devices: {
@@ -38,6 +53,12 @@ const CONFIG = {
 }
 
 console.log('Hello from balena-hvac!')
+console.log('  device_uuid:', deviceUUID)
+console.log('  features:')
+console.log('    log to InfluxDB:', process.env.FEATURE_LOG_TO_INFLUXDB_ACTIVE === '1' ? 'active' : 'inactive')
+if (process.env.FEATURE_LOG_TO_INFLUXDB_ACTIVE === '1') {
+    console.log('      using INFLUX_URL:', process.env.INFLUX_URL)
+}
 
 // init GPIO:
 const fan_out = new Gpio(CONFIG.devices.fan.pin_out, { mode: Gpio.OUTPUT })
@@ -51,17 +72,20 @@ let heating_is_running = false
 fan_out.digitalWrite(fan_is_running ? 1 : 0)
 heating_out.digitalWrite(heating_is_running ? 1 : 0)
 
+// DEBUG:
+// runPwmDebug (fan_out) // only activate if needed!
+
 setInterval(async () => {
 
     console.log('---')
 
     // printing DHT22 measurements for comparison:
-    try {
-        const { temperature, humidity } = await readDHT(CONFIG.devices.dht.type, CONFIG.devices.dht.pin_in)
-        console.log(`DHT22:  temperature: ${temperature.toFixed(2)} °C, humidity: ${humidity.toFixed(2)} %, dew point: ${calculateDewPointTemperature(temperature, humidity).toFixed(2)} °C`)
-    } catch (error) {
-        console.log(error)
-    }
+    // try {
+    //     const { temperature, humidity } = await readDHT(CONFIG.devices.dht.type, CONFIG.devices.dht.pin_in)
+    //     console.log(`DHT22:  temperature: ${temperature.toFixed(2)} °C, humidity: ${humidity.toFixed(2)} %, dew point: ${calculateDewPointTemperature(temperature, humidity).toFixed(2)} °C`)
+    // } catch (error) {
+    //     console.log(error)
+    // }
 
     // using BME280 measurements for the controls:
     try {
@@ -84,18 +108,23 @@ setInterval(async () => {
 
         // heating control:
 
-        const result_heating = heatingControl(heating_out, temperature, calculateDewPointTemperature(temperature, humidity), CONFIG.thresholds.heating, heating_is_running)
+        const dew_point_temperature = calculateDewPointTemperature(temperature, humidity)
+
+        const result_heating = heatingControl(heating_out, temperature, dew_point_temperature, CONFIG.thresholds.heating, heating_is_running)
         heating_is_running = result_heating.heating_is_running
-        console.log('result_heating:', JSON.stringify(result_heating))
 
         if (result_heating.heating_was_turned_on) {
             console.log(`  temperature approaches dew point (difference < ${CONFIG.thresholds.heating.temp_lower_margin} °C) --> turning heating on (${heating_is_running})`)
         } else if (result_heating.heating_was_turned_off) {
             console.log(`  temperature moves away from dew point (difference > ${CONFIG.thresholds.heating.temp_upper_margin} °C) --> turning heating off (${heating_is_running})`)
         }
-     
-        // console.log(`fanControl: ${JSON.stringify(result)}`)
 
+        // write values to database:
+        if (process.env.FEATURE_LOG_TO_INFLUXDB_ACTIVE === '1') {
+            await writeValuesToInfluxDB(influxWriteApiTreeCam, { temperature, humidity, pressure, dew_point_temperature, }, 'environment', 'float', [{ key: 'sensor', value: 'bme280' }])
+            await writeValuesToInfluxDB(influxWriteApiTreeCam, { fan_is_running, heating_is_running }, 'state', 'boolean')
+        }
+     
     } catch (error) {
         console.log(error)
     }
@@ -227,20 +256,84 @@ function calculateDewPointTemperature (observed_temperature, relative_humidity) 
     
 }
 
-/**
- * This function calculates a rough estimation of the dew point temperature.
- * It does not not need barometric pressure as an input and works well for
- * a relative humidity above 50 % but doesn't produce useful values for a
- * relative humidity below 50 %.
- *
- * Source: https://iridl.ldeo.columbia.edu/dochelp/QA/Basic/dewpoint.html
- * 
- * @param {Number} observed_temperature Observed temperature in °C
- * @param {Number} relative_humidity Relative humidity in %
- * @returns Approximated dew point temperature in °C
- */
-function calculateRoughDewPointTemperature (observed_temperature, relative_humidity) {
-    const dew_point_temperature = observed_temperature ((100 - relative_humidity) / 5)
+async function writeValuesToInfluxDB (influxWriteApi, valuesObject, measurement, dataType, tags = []) {
+    console.log('writeValuesToInfluxDB', measurement, dataType, 'valuesObject:', valuesObject)
 
-    return dew_point_temperature
+    if (valuesObject) {
+        const influxPoint = new Point(measurement)
+
+        for (const tag of tags) {
+            influxPoint.tag(tag.key, tag.value)
+        }
+
+        for (const [key, value] of Object.entries(valuesObject)) {
+            switch (dataType) {
+                case 'boolean':
+                    influxPoint.booleanField(key, value)
+                    break
+                case 'float':
+                    influxPoint.floatField(key, value)
+                    break
+                case 'int':
+                    influxPoint.intField(key, value)
+                    break
+                case 'string':
+                default:
+                    influxPoint.stringField(key, value)
+            }
+        }
+
+        await influxWriteApi.writePoint(influxPoint)
+    }
+}
+
+/**
+ * Runs a PWM sequence that can be used to debug PWM controlled devices.
+ * 
+ * @param {initialized Gpio output} gpio_out_to_be_tested 
+ */
+function runPwmDebug (gpio_out_to_be_tested) {
+    setTimeout(() => {
+        gpio_out_to_be_tested.pwmWrite(255)
+
+        setTimeout(() => {
+            gpio_out_to_be_tested.pwmWrite(150)
+
+            setTimeout(() => {
+                gpio_out_to_be_tested.pwmWrite(100)
+
+                setTimeout(() => {
+                    gpio_out_to_be_tested.pwmWrite(50)
+
+                    setTimeout(() => {
+                        gpio_out_to_be_tested.pwmWrite(0)
+
+                        setTimeout(() => {
+                            gpio_out_to_be_tested.pwmWrite(50)
+
+                            setTimeout(() => {
+                                gpio_out_to_be_tested.pwmWrite(100)
+
+                                setTimeout(() => {
+                                    gpio_out_to_be_tested.pwmWrite(150)
+
+                                    setTimeout(() => {
+                                        gpio_out_to_be_tested.pwmWrite(200)
+
+                                        setTimeout(() => {
+                                            gpio_out_to_be_tested.pwmWrite(255)
+
+                                            setTimeout(() => {
+                                                gpio_out_to_be_tested.pwmWrite(0)
+                                            }, 1000)
+                                        }, 1000)
+                                    }, 1000)
+                                }, 1000)
+                            }, 1000)
+                        }, 1000)
+                    }, 1000)
+                }, 1000)
+            }, 1000)
+        }, 1000)
+    }, 1000)
 }
