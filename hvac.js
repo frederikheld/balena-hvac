@@ -257,7 +257,7 @@ function calculateDewPointTemperature (observed_temperature, relative_humidity) 
 }
 
 async function writeValuesToInfluxDB (influxWriteApi, valuesObject, measurement, dataType, tags = []) {
-    console.log('writeValuesToInfluxDB', measurement, dataType, 'valuesObject:', valuesObject)
+    // console.log('writeValuesToInfluxDB', measurement, dataType, 'valuesObject:', valuesObject)
 
     if (valuesObject) {
         const influxPoint = new Point(measurement)
