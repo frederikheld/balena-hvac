@@ -2,8 +2,8 @@
 
 echo "Setting up i2c bus ..."
 
-# modprobe i2c-dev
-# i2cdetect -y 1
+modprobe i2c-dev
+i2cdetect -y 1
 
 echo "Done."
 
@@ -23,4 +23,4 @@ echo "Done."
 
 echo "Starting NodeJS app ..."
 
-# node hvac.js
+node hvac.js
