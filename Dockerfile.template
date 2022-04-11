@@ -31,7 +31,7 @@ RUN npm install --only=production
 
 ENV UDEV=1
 
-COPY hvac.js .
-COPY start.sh .
+COPY start.sh ./
+COPY hvac.js ./
 
 CMD ["npm", "start" ]

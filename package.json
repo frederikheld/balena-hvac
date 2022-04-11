@@ -4,7 +4,7 @@
   "description": "HVAC service for balenaOS",
   "main": "hvac.js",
   "scripts": {
-    "start": "start.sh",
+    "start": "sh start.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
