@@ -11,6 +11,7 @@ services:
       - "/dev/mem:/dev/mem"
       - "/dev/gpiomem:/dev/gpiomem"
       - "/dev/i2c/1:/dev/i2c/1"
+      - "/var/run:/var/run"
     cap_add:
       - SYS_RAWIO
     environment:
