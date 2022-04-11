@@ -25,15 +25,15 @@ const CONFIG = {
             i2c_bus: 1,
             i2c_address: 0x76
         },
-        dht: {
-            type: '22',   // using DHT22 because of the more suitable temperature range. DHT11: 0 - 50 °C, DHT22: -40 - 125 °C,
-            pin_in: '18', // GPIO18
-        },
+        // dht: {
+        //     type: '22',   // using DHT22 because of the more suitable temperature range. DHT11: 0 - 50 °C, DHT22: -40 - 125 °C,
+        //     pin_in: '18', // GPIO18
+        // },
         fan: {
-            pin_out: '26' // GPIO26
+            pin_out: '18' // GPIO18
         },
         heating: {
-            pin_out: '21' // GPIO21
+            pin_out: '23' // GPIO23
         }
     },
     thresholds: {
