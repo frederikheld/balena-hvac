@@ -41,7 +41,8 @@ const CONFIG = {
             temp_upper_margin: parseInt(process.env.DEW_POINT_UPPER_MARGIN || 15), // will stop the heating if the current temperature is 15 °C or more below the current temperature
             temp_lower_margin: parseInt(process.env.DEW_POINT_LOWER_MARGIN || 10)  // will start the heating if the dew point is 10 °C or less below the current temperature 
         }
-    }
+    },
+    interval: process.env.INTERVAL || 60 // measurement interval in s
 }
 
 console.log('Hello from balena-hvac!')
@@ -123,7 +124,7 @@ setInterval(async () => {
         console.log(error)
     }
 
-}, 10000)
+}, CONFIG.interval * 1000)
 
 /**
  * 
