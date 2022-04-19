@@ -10,44 +10,36 @@ const bme280 = require('bme280')
 // InfluxDB
 const { InfluxDB, Point } = require('@influxdata/influxdb-client')
 const influxConfig = {
-    // token: process.env.INFLUX_TOKEN,
-    token: 'P6Tsderlc3bxtBRQon-Ft2ehUbl6Q1E5ff9GHU8Oezg6MF_yNHHNLAZbnmgmlKryAy-iHgwonFpSjDJ6PetVLQ==',
-    org: 'konten@frederikheld.de',
-    bucket: 'TreeCam'
+    url: process.env.INFLUX_URL,
+    token: process.env.INFLUX_TOKEN,
+    org: process.env.INFLUX_ORG,
+    bucket: process.env.INFLUX_BUCKET
 }
-const influxClient = new InfluxDB({ url: 'https://europe-west1-1.gcp.cloud2.influxdata.com', token: influxConfig.token })
+const influxClient = new InfluxDB({ url: influxConfig.url, token: influxConfig.token })
 const influxWriteApiTreeCam = influxClient.getWriteApi(influxConfig.org, influxConfig.bucket)
 influxWriteApiTreeCam.useDefaultTags({ device: deviceUUID })
 
 const CONFIG = {
     devices: {
         bme280: {
-            i2c_bus: 1,
-            i2c_address: 0x76
+            i2c_bus: parseInt(process.env.BME280_I2C_BUS || 1),
+            i2c_address: process.env.BME280_I2C_ADDRESS || 0x76
         },
-        // dht: {
-        //     type: '22',   // using DHT22 because of the more suitable temperature range. DHT11: 0 - 50 °C, DHT22: -40 - 125 °C,
-        //     pin_in: '18', // GPIO18
-        // },
         fan: {
-            pin_out: '18' // GPIO18
+            pin_out: process.env.FAN_OUT || '18'
         },
         heating: {
-            pin_out: '23' // GPIO23
+            pin_out: process.env.HEATING_OUT || '23'
         }
     },
     thresholds: {
         fan: {
-        //     temp_upper: 65,
-        //     temp_lower: 60,
-            temp_upper: 45,
-            temp_lower: 40,
-            dew_point_upper: 0,
-            dew_point_lower: 0
+            temp_upper: parseInt(process.env.TEMP_UPPER_THRESHOLD || 65),
+            temp_lower: parseInt(process.env.TEMP_LOWER_THRESHOLD || 60),
         },
         heating: {
-            temp_upper_margin: 15, // will stop the heating if the current temperature is 15 °C or more below the current temperature
-            temp_lower_margin: 10  // will start the heating if the dew point is 10 °C or less below the current temperature 
+            temp_upper_margin: parseInt(process.env.DEW_POINT_UPPER_MARGIN || 15), // will stop the heating if the current temperature is 15 °C or more below the current temperature
+            temp_lower_margin: parseInt(process.env.DEW_POINT_LOWER_MARGIN || 10)  // will start the heating if the dew point is 10 °C or less below the current temperature 
         }
     }
 }
@@ -58,6 +50,8 @@ console.log('  features:')
 console.log('    log to InfluxDB:', process.env.FEATURE_LOG_TO_INFLUXDB_ACTIVE === '1' ? 'active' : 'inactive')
 if (process.env.FEATURE_LOG_TO_INFLUXDB_ACTIVE === '1') {
     console.log('      using INFLUX_URL:', process.env.INFLUX_URL)
+    console.log('      using INFLUX_ORG:', process.env.INFLUX_ORG)
+    console.log('      using INFLUX_BUCKET:', process.env.INFLUX_BUCKET)
 }
 
 // init GPIO:

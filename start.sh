@@ -19,6 +19,8 @@ else
     echo "No pigpio process found"
 fi
 
+killall pigpiod
+
 echo "Done."
 
 echo "Starting NodeJS app ..."

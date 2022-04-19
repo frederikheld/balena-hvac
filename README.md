@@ -26,11 +26,34 @@ The service will also try to keep humidity and temperature in a range that preve
 
 ## Setup
 
-Just set up your fleet as usualy on balenaCloud.
+Just set up your fleet as usualy on balenaCloud. Download the image that fits your RasPi hardware generation and flash it onto an SD card.
+
+Before you put the SD card into the RasPi and boot for the first time, do the following steps:
+
+### Prepare SD card
+
+Before you deploy your first machine, make sure to set `gpu_mem=512` either in `/mnt/boot/config.txt` directly on the SD card or by setting a fleet variable `BALENA_HOST_CONFIG_gpu_mem=512` in balenaCloud.
+
+See [Advanced boot settings](https://www.balena.io/docs/reference/OS/advanced/) for details.
+
+### Hardware configuration
+
+`balena-hvac` expects an _Bosch MBE280_ sensor that is connected via I2C bus as well as a fan and a heating that are connected via GPIO. You can set the addresses and pins via environment variables. As the hardware is not expected to change during the lifetime of your device, it is best to set those variables in `docker-compose.yml`.
+
+| variable | purpose | default |
+| - | - | - |
+| `BME280_I2C_BUS` | Defines the I2C bus to which the sensor is connected to | 1 |
+| `BME280_I2C_ADDRESS` | The ID of the sensor. This is hardware specific and should be printed on the board. | 0x76 |
+| `FAN_OUT` | GPIO output pin (digital) for the fan control | 18 |
+| `HEATING_OUT` | GPIO output pin (digital) for the heating control | 23 |
+| `TEMP_UPPER_THRESHOLD` | If the ambient temperature goes above this value (in °C), the fan will be turned on | 65 |
+| `TEMP_LOWER_THRESHOLD` | If the ambient temperature goes below this value (in °C), the fan will be turned off | 60 |
+| `DEW_POINT_LOWER_MARGIN` | If the ambient temperature is less (or equal) than this value (in K) away from the ambient temperature, the heating will be turned on | 10 |
+| `DEW_POINT_UPPER_MARGIN` | If the ambient temperature is more than this value (in K) away from the ambient temperature, the heating will be turned off | 15 |
 
 ### Log to InfluxDB
 
-If you want to have your data logged to InfluxDB, you have to create the following fleet variables via the balena dashboard:
+If you want to have your data logged to InfluxDB, you have to provide the credentials and context via environment variables. As those settings might change during the lifetime of your device, it is best to set them as fleet variables via the balena dashboard:
 
 ```
 INFLUX_URL
@@ -46,12 +69,6 @@ To turn the feature on, you also need to create a variable `FEATURE_LOG_TO_INFLU
 > Note: those fleet variables will not be applied in local mode. You can write them into an `.env` file instead! See the [Docker compose docs](https://docs.docker.com/compose/environment-variables/) for details. Note that you need to re-build the service if you make changes in the .env file as it will not be re-read on live-push events!
 
 The logged data will automatically be tagged with the 7-digit UUID of the device as shown in the balena dashboard. You can use it to filter the data.
-
-### Prepare SD card
-
-Before you deploy your first machine, make sure to set `gpu_mem=512` either in `/mnt/boot/config.txt` directly on the SD card or by setting a fleet variable `BALENA_HOST_CONFIG_gpu_mem=512` in balenaCloud.
-
-See [Advanced boot settings](https://www.balena.io/docs/reference/OS/advanced/) for details.
 
 ## Known Issues
 
