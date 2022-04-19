@@ -23,7 +23,7 @@ const CONFIG = {
     devices: {
         bme280: {
             i2c_bus: parseInt(process.env.BME280_I2C_BUS || 1),
-            i2c_address: process.env.BME280_I2C_ADDRESS || 0x76
+            i2c_address: parseInt(process.env.BME280_I2C_ADDRESS || 0x76)
         },
         fan: {
             pin_out: process.env.FAN_OUT || '18'
