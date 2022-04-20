@@ -67,9 +67,6 @@ let heating_is_running = false
 fan_out.digitalWrite(fan_is_running ? 1 : 0)
 heating_out.digitalWrite(heating_is_running ? 1 : 0)
 
-// DEBUG:
-// runPwmDebug (fan_out) // only activate if needed!
-
 setInterval(async () => {
 
     console.log('---')
@@ -280,55 +277,4 @@ async function writeValuesToInfluxDB (influxWriteApi, valuesObject, measurement,
 
         await influxWriteApi.writePoint(influxPoint)
     }
-}
-
-/**
- * Runs a PWM sequence that can be used to debug PWM controlled devices.
- * 
- * @param {initialized Gpio output} gpio_out_to_be_tested 
- */
-function runPwmDebug (gpio_out_to_be_tested) {
-    setTimeout(() => {
-        gpio_out_to_be_tested.pwmWrite(255)
-
-        setTimeout(() => {
-            gpio_out_to_be_tested.pwmWrite(150)
-
-            setTimeout(() => {
-                gpio_out_to_be_tested.pwmWrite(100)
-
-                setTimeout(() => {
-                    gpio_out_to_be_tested.pwmWrite(50)
-
-                    setTimeout(() => {
-                        gpio_out_to_be_tested.pwmWrite(0)
-
-                        setTimeout(() => {
-                            gpio_out_to_be_tested.pwmWrite(50)
-
-                            setTimeout(() => {
-                                gpio_out_to_be_tested.pwmWrite(100)
-
-                                setTimeout(() => {
-                                    gpio_out_to_be_tested.pwmWrite(150)
-
-                                    setTimeout(() => {
-                                        gpio_out_to_be_tested.pwmWrite(200)
-
-                                        setTimeout(() => {
-                                            gpio_out_to_be_tested.pwmWrite(255)
-
-                                            setTimeout(() => {
-                                                gpio_out_to_be_tested.pwmWrite(0)
-                                            }, 1000)
-                                        }, 1000)
-                                    }, 1000)
-                                }, 1000)
-                            }, 1000)
-                        }, 1000)
-                    }, 1000)
-                }, 1000)
-            }, 1000)
-        }, 1000)
-    }, 1000)
 }
