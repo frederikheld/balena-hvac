@@ -70,6 +70,10 @@ To turn the feature on, you also need to create a variable `FEATURE_LOG_TO_INFLU
 
 The logged data will automatically be tagged with the 7-digit UUID of the device as shown in the balena dashboard. You can use it to filter the data.
 
+### Timings
+
+The default measuring interval is 60 seconds (plus the time it takes to conduct the measurement and all related actions). You can change it by setting the `INTERVAL` environment variable to a value in seconds. Depeding on your use case, you might want to set it in `docker-compose.yml` or in the balena dashboard.
+
 ## Known Issues
 
 When using balenaOS live-reload, pigpio might fail with the following error:
