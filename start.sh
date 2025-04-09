@@ -21,6 +21,8 @@ fi
 
 killall pigpiod
 
+rm /var/run/pigpio.pid
+
 echo "Done."
 
 echo "Starting NodeJS app ..."
